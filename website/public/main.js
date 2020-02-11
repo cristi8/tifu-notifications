@@ -12,17 +12,19 @@ firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
-// messaging.usePublicVapidKey("BK7rdAzU3Z6hZ-ronmsnAiLKxOssmGhJzAdcCkjhibDr5KJiTARATOHvoc2iGXNGHNG1UIdKCISjtl6dunT_UgI");
-
 messaging.requestPermission().then(function() {
     console.log("Got notification permissions");
     return messaging.getToken();
 })
 .then(function(token) {
     console.log(token);
+    var xhttp = new XMLHttpRequest();
+    xhttp.open("POST", "http://localhost:8080/register", true);
+    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhttp.send("token=" + encodeURIComponent(token) + "&name=" + encodeURIComponent("hello"));
 })
 .catch(function(err) {
-    console.log("Permission error");
+    console.log("Error: ", err);
 });
 
 messaging.onMessage(function(payload) {
