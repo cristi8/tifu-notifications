@@ -49,7 +49,7 @@ function registerAs(name) {
         console.log(token);
 
         setStatus("Registering as '" + name + "'...");
-        $.post("http://localhost:8080/register", {
+        $.post("/api/register", {
                 token: token,
                 name: name
             }, function(data) {

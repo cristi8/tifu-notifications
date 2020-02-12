@@ -10,9 +10,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def CORS():
-    cherrypy.response.headers["Access-Control-Allow-Origin"] = "*"
-
 REG = {}
 
 
@@ -55,15 +52,15 @@ def main():
     conf = {
         '/': {
             'tools.response_headers.on': True,
-            'tools.CORS.on': True,
             'tools.response_headers.headers': [('Content-Type', 'text/plain')],
             }
         }
 
-    cherrypy.server.socket_host = '0.0.0.0'
-    cherrypy.tools.CORS = cherrypy.Tool('before_handler', CORS)
-    cherrypy.quickstart(HelloWorld(), '/', conf)
+    cherrypy.server.socket_host = '127.0.0.1'
+    cherrypy.server.socket_port = 8088
 
+    cherrypy.config.update({'environment': 'production'})
+    cherrypy.quickstart(HelloWorld(), '/', conf)
 
 
 if __name__ == '__main__':
