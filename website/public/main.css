@@ -1,0 +1,25 @@
+#name-collection .player-name {
+    margin: 5px;
+    float: left;
+    border: 1px solid gray;
+    padding: 30px 10px 30px 10px;
+    font-weight: bold;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.clearfix::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+
+.player-name.state-success {
+    background-color: #dfd;
+}
+.player-name.state-error {
+    background-color: #f44;
+}
+.player-name.state-busy {
+    background-color: #ddd;
+}

@@ -1,11 +1,26 @@
 <!doctype html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
 
+	<link rel="stylesheet" href="main.css?v=4">
 </head>
 <body>
+<h2>Receive notifications when you're called to a table</h2>
+<div class="status"></div>
 
-
+<div id="content">
+    <h4>Select your name:</h4>
+    <div id="name-collection" class="clearfix"></div>
+    <hr />
+    <div>Other: <input type="text" id="otherName" />
+        <button onclick="registerAs(document.getElementById('otherName').value)">Save</button>
+        <div class="status"></div>
+    </div>
+</div>
 <!-- The core Firebase JS SDK is always required and must be listed first -->
 <script src="https://www.gstatic.com/firebasejs/7.8.1/firebase-app.js"></script>
 
@@ -14,6 +29,8 @@
 <script>
 
 </script>
-<script src="main.js"></script>
+<script src="names.js?v=1"></script>
+<script src="main.js?v=1"></script>
+<!-- a -->
 </body>
 </html>
