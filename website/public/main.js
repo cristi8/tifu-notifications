@@ -42,7 +42,7 @@ function setUIState(name, state) {
 
 
 function registerAs(name) {
-    setStatus("Getting notification permission...");
+    setStatus("Obtaining notification user token...");
     setUIState(name, 'busy');
 
     messaging.getToken().then((token) => {
