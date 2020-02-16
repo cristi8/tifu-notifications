@@ -1,65 +1,100 @@
 #!/usr/bin/env python3
 
+import os
+import re
+import logging
+import io
+import urllib.parse
+from PIL import Image, ImageDraw, ImageFont
 import cherrypy
 import firebase_admin
 import firebase_admin.messaging
-import os
-import urllib.parse
-
-import logging
-from PIL import Image, ImageDraw, ImageFont
-import io
+import firebase_admin.firestore
 
 
 logger = logging.getLogger(__name__)
+Q = urllib.parse.quote_plus
 
 
-REG = {}
+def clean_match_title(title: str):
+    # Examples: 'OD Quali.: Qualification 3, Match 4', 'OD Pro 1/4', 'OD Semi 1/4'
+    if title.startswith('OD Quali.: '):
+        title = title[len('OD Quali.: '):]
+    elif title.startswith('OD Semi '):
+        title = title.replace('OD Semi ', 'SemiPro ')
+    elif title.startswith('OD Pro '):
+        title = title.replace('OD Pro ', 'Pro ')
 
-def get_tokens_of(player_name):
-    if player_name not in REG:
-        return []
-    return [REG[player_name]]
+    if 'Final' in title:
+        title = '🥇 ' + title + ' 🥇'
+    elif '3rd Place' in title:
+        title = '🥉 ' + title + ' 🥉'
+
+    return title
 
 
-class HelloWorld(object):
-    @cherrypy.expose
-    def index(self):
-        return "Hello World!"
+class TifuNotificationsBackend(object):
+    def __init__(self):
+        self.db = firebase_admin.firestore.client()
+        self.db_registration = self.db.collection('reg')
+        self.regex_called = re.compile(r'^(.*) \((.*) / (.*) versus (.*) / (.*)\) called.$')
+
+    def _get_tokens_of(self, player_name):
+        if not player_name:
+            # Enforce opting out of notifications when choosing an empty name
+            return []
+        db_results = self.db_registration.where('name', '==', player_name.lower()).limit(100).stream()
+        return [db_doc.id for db_doc in db_results]
 
     @cherrypy.expose
     def register(self, token, name):
-        print("REGISTER", token, name)
-        REG[name] = token
+        logger.info("REGISTER as %s: %s", name, token)
+        db_doc = self.db_registration.document(token)
+        db_doc.set({'name': name.lower()})
 
     @cherrypy.expose
-    def notify(self, match):
-        team1, team2 = match.split(' versus ')
-        p11, p12 = team1.split(' / ')
-        p21, p22 = team2.split(' / ')
+    def new_action(self, action_str):
+        re_match = re.match(self.regex_called, action_str)
+        if not re_match:
+            logger.warning("Unknown action: %s", action_str)
+            return "unknown"
 
+        match_title, p11, p12, p21, p22 = re_match.groups()
+        return self.match_called(p11, p12, p21, p22, match_title)
+
+    @cherrypy.expose
+    def match_called(self, p11, p12, p21, p22, title='Test'):
         names = [p11, p12, p21, p22]
         teammates = [p12, p11, p22, p21]
         opponents = [[p21, p22], [p21, p22], [p11, p12], [p11, p12]]
 
-        logger.info("Notifying match %s", match)
+        logger.info(f"Match called: {p11} / {p12} versus {p21} / {p22}")
         msgs = []
 
         for i in range(4):
             name, teammate, opponent = names[i], teammates[i], opponents[i]
-            name_tokens = get_tokens_of(name)
+            name_tokens = self._get_tokens_of(name)
             for token in name_tokens:
                 msg = firebase_admin.messaging.Message(
                     data={},
                     notification=firebase_admin.messaging.Notification(),
                     webpush=firebase_admin.messaging.WebpushConfig(
+                        headers={
+                            "Urgency": "high"
+                        },
+                        data={
+                            'text_title': 'Get ready for ' + clean_match_title(title),
+                            'text_body': f'You and {teammate} against {opponent[0]} and {opponent[1]}'
+                        },
                         notification=firebase_admin.messaging.WebpushNotification(
                             title='Get ready',
-                            body=f'Your match was called (vs {opponent[0]} and {opponent[1]})',
+                            body=clean_match_title(title),
                             icon='/img/icon.png?v=1',
                             badge="/img/badge.png",
-                            image='/api/img?w=1024&h=325&title=' + urllib.parse.quote_plus(match),
-                            require_interaction=True
+                            image=f'/api/img?v=1.0&w=1024&h=325&p11={Q(p11)}&p12={Q(p12)}&p21={Q(p21)}&p22={Q(p22)}',
+                            require_interaction=True,
+                            tag='match_called',
+                            renotify=True
                         )
                     ),
                     token=token
@@ -70,7 +105,7 @@ class HelloWorld(object):
         return 'ok'
 
     @cherrypy.expose
-    def img(self, title, w="720", h="240"):
+    def img(self, p11, p12, p21, p22, w="720", h="240", v=''):
         w = int(w)
         h = int(h)
         if min(w, h) < 100 or max(w, h) > 2000:
@@ -78,7 +113,7 @@ class HelloWorld(object):
         img = Image.new('1', (w, h))
         draw = ImageDraw.Draw(img)
 
-        team1, team2 = title.split(' versus ')
+        team1, team2 = f'{p11} / {p12}', f'{p21} / {p22}'
         versus = 'vs'
 
         font = None
@@ -90,7 +125,7 @@ class HelloWorld(object):
             w_versus, h_versus = draw.textsize(versus, font)
             w_team2, h_team2 = draw.textsize(team2, font)
 
-            if max(w_team1, w_versus, w_team2) < w and h_team1 + 2 * h_versus + h_team2 < h:
+            if max(w_team1, w_versus, w_team2) < 0.9 * w and h_team1 + 2 * h_versus + h_team2 < 0.9 * h:
                 break
             font_size -= 1
 
@@ -126,7 +161,7 @@ def main():
     cherrypy.server.socket_port = 8088
 
     cherrypy.config.update({'environment': 'production'})
-    cherrypy.quickstart(HelloWorld(), '/', conf)
+    cherrypy.quickstart(TifuNotificationsBackend(), '/', conf)
 
 
 if __name__ == '__main__':

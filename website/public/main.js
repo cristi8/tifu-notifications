@@ -17,13 +17,19 @@ function initFirebase() {
     messaging = firebase.messaging();
     messaging.usePublicVapidKey("BK7rdAzU3Z6hZ-ronmsnAiLKxOssmGhJzAdcCkjhibDr5KJiTARATOHvoc2iGXNGHNG1UIdKCISjtl6dunT_UgI");
 
+    firebase.notifications().onNotification((notification) => {
+        console.log("onNotification", notification);
+        firebase.notifications().displayNotification(notification);
+    });
 
     messaging.onMessage(function(payload) {
         console.log("onMessage: ", payload);
-        let notification = new Notification(
-            payload.notification.title,
-            payload.notification
-        );
+
+
+        //let notification = new Notification(
+        //    payload.notification.title,
+        //    payload.notification
+        //);
     });
 
 }
