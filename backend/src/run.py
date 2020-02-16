@@ -35,22 +35,22 @@ def clean_match_title(title: str):
 
 class TifuNotificationsBackend(object):
     def __init__(self):
-        self.db = firebase_admin.firestore.client()
-        self.db_registration = self.db.collection('reg')
         self.regex_called = re.compile(r'^(.*) \((.*) / (.*) versus (.*) / (.*)\) called.$')
 
-    def _get_tokens_of(self, player_name):
+    def _get_tokens_of(self, player_name, db):
         if not player_name:
             # Enforce opting out of notifications when choosing an empty name
             return []
-        db_results = self.db_registration.where('name', '==', player_name.lower()).limit(100).stream()
+        db_results = db.collection('reg').where('name', '==', player_name.lower()).limit(100).stream()
         return [db_doc.id for db_doc in db_results]
 
     @cherrypy.expose
     def register(self, token, name):
         logger.info("REGISTER as %s: %s", name, token)
-        db_doc = self.db_registration.document(token)
+        db = firebase_admin.firestore.client()
+        db_doc = db.collection('reg').document(token)
         db_doc.set({'name': name.lower()})
+
 
     @cherrypy.expose
     def new_action(self, action_str):
@@ -70,10 +70,11 @@ class TifuNotificationsBackend(object):
 
         logger.info(f"Match called: {p11} / {p12} versus {p21} / {p22}")
         msgs = []
+        db = firebase_admin.firestore.client()
 
         for i in range(4):
             name, teammate, opponent = names[i], teammates[i], opponents[i]
-            name_tokens = self._get_tokens_of(name)
+            name_tokens = self._get_tokens_of(name, db)
             for token in name_tokens:
                 msg = firebase_admin.messaging.Message(
                     data={},
