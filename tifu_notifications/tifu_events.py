@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 # This only works for files that are only appended to and all lines are different.
 # In this case, there's a timestamp in each line
 class NewLinesEventHandler(PatternMatchingEventHandler):
-    def __init__(self, file_pattern, cb):
-        super().__init__(file_pattern)
+    def __init__(self, file_patterns, cb):
+        super().__init__(file_patterns)
         self.new_lines_callback = cb
         self.seen_lines = {}
 
@@ -71,7 +71,7 @@ class TifuEvents(object):
         self.callback(evt)
 
     def start(self):
-        event_handler = NewLinesEventHandler('Status_*', self.on_status_line)
+        event_handler = NewLinesEventHandler([r'*\Status_*'], self.on_status_line)
         observer = Observer()
         observer.schedule(event_handler, os.path.join(self.tifu_installation_directory, 'backup'), recursive=True)
         observer.start()

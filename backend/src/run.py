@@ -39,7 +39,7 @@ def clean_match_title(title: str):
 
 class TifuNotificationsBackend(object):
     def __init__(self):
-        self.regex_called = re.compile(r'^(.*) \((.*) / (.*) versus (.*) / (.*)\) called.$')
+        self.regex_called = re.compile(r'^(.*) \((.*) / (.*) versus (.*) / (.*)\) (called|started).$')
 
     def _get_tokens_of(self, player_name, db):
         if not player_name:
@@ -62,7 +62,7 @@ class TifuNotificationsBackend(object):
             logger.warning("Unknown action: %s", action_str)
             return "unknown"
 
-        match_title, p11, p12, p21, p22 = re_match.groups()
+        match_title, p11, p12, p21, p22, _ = re_match.groups()
         return self.match_called(secret, p11, p12, p21, p22, match_title)
 
     @cherrypy.expose

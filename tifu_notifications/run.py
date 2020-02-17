@@ -14,7 +14,7 @@ PATH_SECRET = os.path.join(PATH_SCRIPT, 'secret.txt')
 
 with open(PATH_SECRET, 'r') as f:
     NOTIFY_SECRET = f.read().strip()
-NOTIFY_URL = 'https://foos.cristi8.net/new_action'
+NOTIFY_URL = 'https://foos.cristi8.net/api/new_action'
 
 
 def on_tifu_event(evt):
