@@ -16,6 +16,12 @@ class NewLinesEventHandler(PatternMatchingEventHandler):
         self.seen_lines = {}
 
     def on_modified(self, event):
+        try:
+            self._on_file_modified(event)
+        except Exception as ex:
+            logger.error("Error processing file %s: %s", event.src_path, str(ex))
+
+    def _on_file_modified(self, event):
         if event.src_path not in self.seen_lines:
             # Init with existing lines (except last line, which was actually modified)
             with open(event.src_path, 'r') as f:
