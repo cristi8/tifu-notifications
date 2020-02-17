@@ -14,6 +14,8 @@ import firebase_admin.firestore
 
 logger = logging.getLogger(__name__)
 Q = urllib.parse.quote_plus
+with open(os.environ['TIFU_NOTIFY_SECRET'], 'r') as f:
+    NOTIFY_SECRET = f.read().strip()
 
 
 def clean_match_title(title: str):
@@ -51,19 +53,20 @@ class TifuNotificationsBackend(object):
         db_doc = db.collection('reg').document(token)
         db_doc.set({'name': name.lower()})
 
-
     @cherrypy.expose
-    def new_action(self, action_str):
+    def new_action(self, secret, action_str):
         re_match = re.match(self.regex_called, action_str)
         if not re_match:
             logger.warning("Unknown action: %s", action_str)
             return "unknown"
 
         match_title, p11, p12, p21, p22 = re_match.groups()
-        return self.match_called(p11, p12, p21, p22, match_title)
+        return self.match_called(secret, p11, p12, p21, p22, match_title)
 
     @cherrypy.expose
-    def match_called(self, p11, p12, p21, p22, title='Test'):
+    def match_called(self, secret, p11, p12, p21, p22, title='Test'):
+        if secret != NOTIFY_SECRET:
+            return "denied"
         names = [p11, p12, p21, p22]
         teammates = [p12, p11, p22, p21]
         opponents = [[p21, p22], [p21, p22], [p11, p12], [p11, p12]]
