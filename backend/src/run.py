@@ -20,12 +20,14 @@ with open(os.environ['TIFU_NOTIFY_SECRET'], 'r') as f:
 
 def clean_match_title(title: str):
     # Examples: 'OD Quali.: Qualification 3, Match 4', 'OD Pro 1/4', 'OD Semi 1/4'
-    if title.startswith('OD Quali.: '):
-        title = title[len('OD Quali.: '):]
-    elif title.startswith('OD Semi '):
-        title = title.replace('OD Semi ', 'SemiPro ')
-    elif title.startswith('OD Pro '):
-        title = title.replace('OD Pro ', 'Pro ')
+    if title.startswith('OD Quali.: ') or title.startswith('OS Quali.: '):
+        title = title[len('O? Quali.: '):]
+    elif title.startswith('OD Semi ') or title.startswith('OS Semi '):
+        title = title.replace('OD Semi ', 'SemiPro ').replace('OS Semi ', 'SemiPro ')
+    elif title.startswith('OD Pro ') or title.startswith('OS Pro '):
+        title = title[3:]
+    elif title.startswith('M-DYP: '):
+        title = title.replace('M-DYP: ', '')
 
     if 'Final' in title:
         title = '🥇 ' + title + ' 🥇'
