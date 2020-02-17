@@ -19,10 +19,12 @@ NOTIFY_URL = 'https://foos.cristi8.net/api/new_action'
 
 def on_tifu_event(evt):
     logger.info("%s %s: %s", evt['tournament'], evt['type'], evt['info'])
-    if evt['type'] == 'started':
+    if evt['type'] in ['started', 'finished']:
         requests.post(NOTIFY_URL, {
             'secret': NOTIFY_SECRET,
-            'action_str': evt['info']
+            'action_str': evt['info'],
+            'table': evt.get('table', '-1'),
+            'score': evt.get('score', '')
         })
 
 

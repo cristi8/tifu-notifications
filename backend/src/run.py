@@ -56,18 +56,20 @@ class TifuNotificationsBackend(object):
         db_doc.set({'name': name.lower()})
 
     @cherrypy.expose
-    def new_action(self, secret, action_str):
+    def new_action(self, secret, action_str, table='-1', score=''):
         re_match = re.match(self.regex_called, action_str)
         if not re_match:
             logger.warning("Unknown action: %s", action_str)
             return "unknown"
 
         match_title, p11, p12, p21, p22, _ = re_match.groups()
-        return self.match_called(secret, p11, p12, p21, p22, match_title)
+        return self.match_called(secret, p11, p12, p21, p22, match_title, table=table)
 
     @cherrypy.expose
-    def match_called(self, secret, p11, p12, p21, p22, title='Test'):
+    def match_called(self, secret, p11, p12, p21, p22, title='Test', table='-1'):
+        table = int(table) + 1
         if secret != NOTIFY_SECRET:
+            logger.error("BAD SECRET: '%s'", secret)
             return "denied"
         names = [p11, p12, p21, p22]
         teammates = [p12, p11, p22, p21]
@@ -77,6 +79,9 @@ class TifuNotificationsBackend(object):
         msgs = []
         db = firebase_admin.firestore.client()
 
+        notif_title = 'Get ready'
+        if table:
+            notif_title += f' at table {table}'
         for i in range(4):
             name, teammate, opponent = names[i], teammates[i], opponents[i]
             name_tokens = self._get_tokens_of(name, db)
@@ -93,7 +98,7 @@ class TifuNotificationsBackend(object):
                             'text_body': f'You and {teammate} against {opponent[0]} and {opponent[1]}'
                         },
                         notification=firebase_admin.messaging.WebpushNotification(
-                            title='Get ready',
+                            title=notif_title,
                             body=clean_match_title(title),
                             icon='/img/icon.png?v=1',
                             badge="/img/badge.png",

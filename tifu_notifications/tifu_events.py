@@ -74,6 +74,10 @@ class TifuEvents(object):
             }.get(int(fields[2]), f'unknown ({fields[2]})'),
             'info': fields[-1]
         }
+        if evt['type'] == 'started':
+            evt['table'] = fields[5]
+        if evt['type'] == 'finished':
+            evt['score'] = fields[6]
         self.callback(evt)
 
     def start(self):
