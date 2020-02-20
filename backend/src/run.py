@@ -39,7 +39,8 @@ def clean_match_title(title: str):
 
 class TifuNotificationsBackend(object):
     def __init__(self):
-        self.regex_called = re.compile(r'^(.*) \((.*) / (.*) versus (.*) / (.*)\) (called|started).$')
+        self.regex_called_d = re.compile(r'^(.*) \((.*) / (.*) versus (.*) / (.*)\) (called|started).$')
+        self.regex_called_s = re.compile(r'^(.*) \(([^/]*) versus ([^/]*)\) (called|started).$')
 
     def _get_tokens_of(self, player_name, db):
         if not player_name:
@@ -57,16 +58,21 @@ class TifuNotificationsBackend(object):
 
     @cherrypy.expose
     def new_action(self, secret, action_str, table='-1', score=''):
-        re_match = re.match(self.regex_called, action_str)
-        if not re_match:
-            logger.warning("Unknown action: %s", action_str)
-            return "unknown"
+        re_match = re.match(self.regex_called_d, action_str)
+        if re_match:
+            match_title, p11, p12, p21, p22, _ = re_match.groups()
+            return self.match_called_d(secret, p11, p12, p21, p22, match_title, table=table)
 
-        match_title, p11, p12, p21, p22, _ = re_match.groups()
-        return self.match_called(secret, p11, p12, p21, p22, match_title, table=table)
+        re_match = re.match(self.regex_called_s, action_str)
+        if re_match:
+            match_title, p1, p2, _ = re_match.groups()
+            return self.match_called_s(secret, p1, p2, match_title, table=table)
+
+        logger.warning("Unknown action: %s", action_str)
+        return "unknown"
 
     @cherrypy.expose
-    def match_called(self, secret, p11, p12, p21, p22, title='Test', table='-1'):
+    def match_called_d(self, secret, p11, p12, p21, p22, title='Test', table='-1'):
         table = int(table) + 1
         if secret != NOTIFY_SECRET:
             logger.error("BAD SECRET: '%s'", secret)
@@ -116,7 +122,56 @@ class TifuNotificationsBackend(object):
         return 'ok'
 
     @cherrypy.expose
-    def img(self, p11, p12, p21, p22, w="720", h="240", v=''):
+    def match_called_s(self, secret, p1, p2, title='Test', table='-1'):
+        table = int(table) + 1
+        if secret != NOTIFY_SECRET:
+            logger.error("BAD SECRET: '%s'", secret)
+            return "denied"
+        names = [p1, p2]
+        opponents = [p2, p1]
+
+        logger.info(f"Match called: {p1} versus {p2}")
+        msgs = []
+        db = firebase_admin.firestore.client()
+
+        notif_title = 'Get ready'
+        if table:
+            notif_title += f' at table {table}'
+        for i in range(2):
+            name, opponent = names[i], opponents[i]
+            name_tokens = self._get_tokens_of(name, db)
+            for token in name_tokens:
+                msg = firebase_admin.messaging.Message(
+                    data={},
+                    notification=firebase_admin.messaging.Notification(),
+                    webpush=firebase_admin.messaging.WebpushConfig(
+                        headers={
+                            "Urgency": "high"
+                        },
+                        data={
+                            'text_title': 'Get ready for ' + clean_match_title(title),
+                            'text_body': f'You against {opponent}'
+                        },
+                        notification=firebase_admin.messaging.WebpushNotification(
+                            title=notif_title,
+                            body=clean_match_title(title),
+                            icon='/img/icon.png?v=1',
+                            badge="/img/badge.png",
+                            image=f'/api/img?v=1.0&w=1024&h=325&p11={Q(p1)}&p21={Q(p2)}',
+                            require_interaction=True,
+                            tag='match_called',
+                            renotify=True
+                        )
+                    ),
+                    token=token
+                )
+                msgs.append(msg)
+        firebase_admin.messaging.send_all(msgs)
+        logger.info('Successfully sent %s notifications', len(msgs))
+        return 'ok'
+
+    @cherrypy.expose
+    def img(self, p11, p21, p12="", p22="", w="720", h="240", v=''):
         w = int(w)
         h = int(h)
         if min(w, h) < 100 or max(w, h) > 2000:
@@ -124,7 +179,14 @@ class TifuNotificationsBackend(object):
         img = Image.new('1', (w, h))
         draw = ImageDraw.Draw(img)
 
-        team1, team2 = f'{p11} / {p12}', f'{p21} / {p22}'
+        if p12:
+            team1 = f'{p11} / {p12}'
+        else:
+            team1 = p11
+        if p22:
+            team2 = f'{p21} / {p22}'
+        else:
+            team2 = p21
         versus = 'vs'
 
         font = None
